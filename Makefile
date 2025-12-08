@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -g -Wall -std=c99 -fsanitize=address,undefined
+CFLAGS  = -g -Wall -std=c99 -fsanitize=address,undefined -pthread
 
 # default target
 all: nimd rawc
