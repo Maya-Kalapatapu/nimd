@@ -15,6 +15,27 @@
 #define MAX_NAME_LEN 72   // per spec
 #define MAX_WAITING 16    // max lobby size
 
+/* Check whether a socket is still alive (no disconnect yet). */
+static int fd_alive(int fd) {
+    char c;
+    ssize_t n = recv(fd, &c, 1, MSG_PEEK | MSG_DONTWAIT);
+    if (n == 0) {
+        /* peer has closed the connection */
+        return 0;
+    }
+    if (n < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            /* no data, but connection is still open */
+            return 1;
+        }
+        /* other error: treat as dead */
+        return 0;
+    }
+    /* n > 0: there is data, so it's alive */
+    return 1;
+}
+
+
 typedef struct {
     int  fd;
     char name[MAX_NAME_LEN + 1];
@@ -428,11 +449,26 @@ int main(int argc, char **argv) {
             close(fd);
         }
 
-        /* if we have at least two waiting players, start a game in a new thread */
+        /* prune any waiting players whose connections died before game */
+        int write_idx = 0;
+        for (int i = 0; i < waiting_count; i++) {
+            if (fd_alive(waiting[i].fd)) {
+                if (write_idx != i) {
+                    waiting[write_idx] = waiting[i];
+                }
+                write_idx++;
+            } else {
+                /* client disconnected before game; drop them */
+                close(waiting[i].fd);
+            }
+        }
+        waiting_count = write_idx;
+
+        /* if we have at least two waiting players, start games in new threads */
         while (waiting_count >= 2) {
             game_pair_t *pair = malloc(sizeof(*pair));
             if (!pair) {
-                /* out of memory; just break and try later */
+                /* out of memory; try again later */
                 break;
             }
 
@@ -456,8 +492,6 @@ int main(int argc, char **argv) {
                 close(pair->p1.fd);
                 close(pair->p2.fd);
                 free(pair);
-                /* they never got into active list in this failure path,
-                   so no need to remove them. */
                 continue;
             }
 
