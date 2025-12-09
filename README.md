@@ -50,7 +50,7 @@ Running “make test” performs all required and extra-credit protocol tests:
 • Opponent disconnect mid-game → OVER … Forfeit  
 
 The test script launches fresh server instances for clean, deterministic results.  
-All responses are displayed as hexdumps for transparent grading.  
+All responses are displayed.  
 Additional manual tests can also be performed using testc to confirm full game flow, turn alternation, and correct end-of-game behavior.
 
 ## File Overview
